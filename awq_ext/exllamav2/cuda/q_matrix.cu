@@ -1,3 +1,5 @@
+
+#include <hip/hip_runtime.h>
 #include "q_matrix.cuh"
 #include "matrix_view.cuh"
 #include "util.cuh"
@@ -70,7 +72,7 @@ QMatrix::QMatrix
     groups(_groups),
     temp_dq(_temp_dq)
 {
-    cudaSetDevice(device);
+    hipSetDevice(device);
 
     failed = false;
 
@@ -100,7 +102,7 @@ QMatrix::QMatrix
     if (!is_gptq)
     {
         uint16_t* cpu_q_groups = (uint16_t*)calloc(groups * 2, sizeof(uint16_t));
-        cudaMemcpy(cpu_q_groups, cuda_q_groups, groups * 2 * sizeof(uint16_t), cudaMemcpyDeviceToHost);
+        hipMemcpy(cpu_q_groups, cuda_q_groups, groups * 2 * sizeof(uint16_t), hipMemcpyDeviceToHost);
 
         for (int i = 0; i < groups; i++)
         {
@@ -540,9 +542,9 @@ __global__ void make_sequential_kernel
 bool QMatrix::make_sequential(const uint32_t* cpu_g_idx)
 {
     uint32_t* cuda_new_qweight = NULL;
-    cudaError_t err = cudaMalloc(&cuda_new_qweight, height / 8 * width * sizeof(uint32_t));
-    if (err != cudaSuccess) {
-        cudaError_t cuda_status = cudaGetLastError(); // Clear error
+    hipError_t err = hipMalloc(&cuda_new_qweight, height / 8 * width * sizeof(uint32_t));
+    if (err != hipSuccess) {
+        hipError_t cuda_status = hipGetLastError(); // Clear error
         return false;
     }
 
@@ -586,8 +588,8 @@ bool QMatrix::make_sequential(const uint32_t* cpu_g_idx)
 
     // Move to CUDA
 
-    cudaMemcpyAsync(cuda_q_perm, cpu_x_map16, height * sizeof(uint16_t), cudaMemcpyHostToDevice);
-    cudaMemcpyAsync(cuda_q_invperm, cpu_x_map_inv16, height * sizeof(uint16_t), cudaMemcpyHostToDevice);
+    hipMemcpyAsync(cuda_q_perm, cpu_x_map16, height * sizeof(uint16_t), hipMemcpyHostToDevice);
+    hipMemcpyAsync(cuda_q_invperm, cpu_x_map_inv16, height * sizeof(uint16_t), hipMemcpyHostToDevice);
 
     // Rearrange rows in w
 
@@ -608,13 +610,13 @@ bool QMatrix::make_sequential(const uint32_t* cpu_g_idx)
 
     // Replace qweights
 
-    cudaMemcpyAsync(cuda_q_weight, cuda_new_qweight, height / 8 * width * sizeof(uint32_t), cudaMemcpyDeviceToDevice);
+    hipMemcpyAsync(cuda_q_weight, cuda_new_qweight, height / 8 * width * sizeof(uint32_t), hipMemcpyDeviceToDevice);
 
     // Cleanup
 
-    cudaDeviceSynchronize();
+    hipDeviceSynchronize();
 
-    cudaFree(cuda_new_qweight);
+    hipFree(cuda_new_qweight);
     free(cpu_g_idx_map);
     free(cpu_x_map);
     free(cpu_x_map_inv);

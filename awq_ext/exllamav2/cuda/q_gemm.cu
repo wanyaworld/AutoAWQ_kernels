@@ -1,3 +1,5 @@
+
+#include <hip/hip_runtime.h>
 #include "q_gemm.cuh"
 #include "util.cuh"
 #include "matrix_view.cuh"
@@ -103,7 +105,7 @@ void gemm_half_q_half_cuda_part
 
 void gemm_half_q_half_cuda
 (
-    cublasHandle_t cublas_handle,
+    hipblasHandle_t cublas_handle,
     const half* a,
     QMatrix* b,
     half* c,
@@ -128,9 +130,9 @@ void gemm_half_q_half_cuda
 
         const half alpha = __float2half(1.0f);
         const half beta = clear ? __float2half(0.0f) : __float2half(1.0f);
-        cublasHgemm(cublas_handle,
-                    CUBLAS_OP_N,
-                    CUBLAS_OP_N,
+        hipblasHgemm(cublas_handle,
+                    HIPBLAS_OP_N,
+                    HIPBLAS_OP_N,
                     size_n, size_m, size_k,
                     &alpha, temp_dq, size_n,
                             a,       size_k,
